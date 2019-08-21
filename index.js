@@ -56,7 +56,7 @@ const plugin = function(schema, options) {
                             const parentDoc = isSubdocument ? this.ownerDocument() : this;
                             const isNew = typeof parentDoc.isNew === 'boolean' ? parentDoc.isNew : !isQuery;
 
-                            const conditions = {};
+                            let conditions = [];
                             each(paths, (name) => {
                                 let pathValue;
 
@@ -74,17 +74,17 @@ const plugin = function(schema, options) {
                                     pathValue = new RegExp('^' + pathValue + '$', 'i');
                                 }
 
-                                conditions[name] = pathValue;
+                                conditions.push({ [name]: pathValue });
                             });
 
                             if (!isNew) {
                                 // Use conditions the user has with find*AndUpdate
                                 if (isQuery) {
                                     each(this._conditions, (value, key) => {
-                                        conditions[key] = { $ne: value };
+                                        conditions.push({ [key]: { $ne: value } });
                                     });
                                 } else if (this._id) {
-                                    conditions._id = { $ne: this._id };
+                                    conditions.push({ _id: { $ne: this._id } });
                                 }
                             }
 
@@ -99,15 +99,14 @@ const plugin = function(schema, options) {
                             } else if (isFunc(this.model)) {
                                 model = this.model(this.constructor.modelName);
                             }
-
                             // Is this model a discriminator and the unique index is on the whole collection,
                             // not just the instances of the discriminator? If so, use the base model to query.
                             // https://github.com/Automattic/mongoose/issues/4965
-                            if (model.baseModelName && indexOptions.partialFilterExpression === null) {
-                                model = model.db.model(model.baseModelName);
+                            if (model.baseModelName && indexOptions.partialFilterExpression == null) {
+                              model = model.db.model(model.baseModelName);
                             }
 
-                            model.find(conditions).countDocuments((err, count) => {
+                            model.where({ $and: conditions }).countDocuments((err, count) => {
                                 resolve(count === 0);
                             });
                         });
